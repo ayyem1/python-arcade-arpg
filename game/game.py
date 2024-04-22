@@ -4,43 +4,57 @@ Handles game loop.
 
 """
 
-import pyray
-from raylib import DrawTextureRec
+import arcade
 
-from engine.assets import AssetDatabase
 from game import settings
-from game.player import Player
 
 
-class Game:
+class Game(arcade.Window):
     def __init__(self) -> None:
-        pyray.init_window(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT, settings.GAME_NAME)
-        pyray.set_target_fps(60)
+        super().__init__(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT, settings.GAME_NAME)
 
-        AssetDatabase().add_animation_asset("player_right", b"data/graphics/player/right.png", 4, 10)
-        AssetDatabase().add_animation_asset("player_left", b"data/graphics/player/left.png", 4, 10)
-        AssetDatabase().add_animation_asset("player_up", b"data/graphics/player/up.png", 4, 10)
-        AssetDatabase().add_animation_asset("player_down", b"data/graphics/player/down.png", 4, 10)
+        arcade.set_background_color(arcade.color.AMAZON)
 
-        self.player = Player(pyray.Vector2(settings.SCREEN_WIDTH / 2, settings.SCREEN_HEIGHT / 2))
+        self.perf_graph_list = None
 
-    def run(self) -> None:
-        # Main game loop
-        while not pyray.window_should_close():  # Detect window close button or ESC key
-            dt: float = pyray.get_frame_time()
-            # Update
-            self.player.update(dt=dt)
+        self.frame_count = 0
 
-            # Draw
-            pyray.begin_drawing()
+    def setup(self):
+        """Set up the game here. Call this function to restart the game."""
+        # Create a sprite list to put the performance graph into
+        self.perf_graph_list = arcade.SpriteList()
 
-            DrawTextureRec(
-                self.player.animation.texture, self.player.animation.frame_rect, self.player.position, pyray.WHITE
-            )
-            pyray.clear_background(pyray.BLACK)
-            pyray.draw_fps(2, 2)
+        # Create the FPS performance graph
+        graph = arcade.PerfGraph(settings.GRAPH_WIDTH, settings.GRAPH_HEIGHT, graph_data="FPS")
+        graph.center_x = settings.GRAPH_WIDTH / 2
+        graph.center_y = self.height - settings.GRAPH_HEIGHT / 2
+        self.perf_graph_list.append(graph)
 
-            pyray.end_drawing()
+        # Create the on_update graph
+        graph = arcade.PerfGraph(settings.GRAPH_WIDTH, settings.GRAPH_HEIGHT, graph_data="on_update")
+        graph.center_x = settings.GRAPH_WIDTH / 2 + (settings.GRAPH_WIDTH + settings.GRAPH_MARGIN)
+        graph.center_y = self.height - settings.GRAPH_HEIGHT / 2
+        self.perf_graph_list.append(graph)
 
-        # De-Initialization
-        pyray.close_window()  # Close window and OpenGL context
+        # Create the on_draw graph
+        graph = arcade.PerfGraph(settings.GRAPH_WIDTH, settings.GRAPH_HEIGHT, graph_data="on_draw")
+        graph.center_x = settings.GRAPH_WIDTH / 2 + (settings.GRAPH_WIDTH + settings.GRAPH_MARGIN) * 2
+        graph.center_y = self.height - settings.GRAPH_HEIGHT / 2
+        self.perf_graph_list.append(graph)
+
+    def on_update(self, delta_time: float):
+        super().on_update(delta_time)
+
+        if self.frame_count % 60 == 0:
+            # arcade.print_timings()
+            arcade.clear_timings()
+
+    def on_draw(self):
+        """Render the screen."""
+        self.clear()
+
+        self.perf_graph_list.draw()
+
+        # Get FPS for the last 60 frames
+        text = f"FPS: {arcade.get_fps(60):5.1f}"
+        arcade.draw_text(text, settings.SCREEN_WIDTH - 150, 10, arcade.color.BLACK, 22)
